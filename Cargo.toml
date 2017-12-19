@@ -1,0 +1,7 @@
+[package]
+name = "rcsim"
+version = "0.1.0"
+authors = ["Tom"]
+
+[dependencies]
+clap = "2"
