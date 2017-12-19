@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::BufReader;
 
 #[macro_use]
 extern crate clap;
@@ -56,6 +57,8 @@ fn main() {
     */
 
     let mut cache: ModelCache = make_cache(opts, stats);
+
+    read_trace(matches.value_of("FILE").unwrap(), &cache);
     
     println!("Hits: {} Misses: {} Evictions: {}", cache.stats.hits,
                                                   cache.stats.misses,
@@ -74,5 +77,11 @@ fn make_cache(options: Options, statistics: Statistics) -> ModelCache {
     ModelCache {opts: options, stats: statistics, sets: sets}
 }
 
-fn read_trace(file_loc: String, cache: &ModelCache) {
+fn read_trace(file_loc: &str, cache: &ModelCache) {
+    let file = File::open(file_loc).unwrap();
+    let file = BufReader::new(file);
+
+    for line in file.lines() {
+        println!("{}", line.unwrap());
+    }
 }
