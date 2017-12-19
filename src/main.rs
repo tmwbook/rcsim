@@ -82,6 +82,25 @@ fn read_trace(file_loc: &str, cache: &ModelCache) {
     let file = BufReader::new(file);
 
     for line in file.lines() {
-        println!("{}", line.unwrap());
+        let line = line.unwrap();
+        if line.chars().nth(0).unwrap() != ' ' {
+            println!("SKIPPED LINE!");
+            continue;
+        }
+        handle_instruction(&line);
     }
+}
+
+fn handle_instruction(line: &String) {
+    // Really ugly parsing ahead
+    let inst: char = line.chars().nth(1).unwrap();
+    let (_, end): (&str, &str) = line.split_at(4);
+    let addr: &str = end.split(',').nth(0).unwrap();
+
+    // Get the full address in dec
+    let addr: u32 = u32::from_str_radix(addr, 16).unwrap();
+
+    // Do some bitwise to get the different parts of the destination
+
+    println!("{} @ {}", inst, addr);
 }
