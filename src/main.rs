@@ -7,7 +7,7 @@ extern crate clap;
 
 struct CacheLine {
     valid: bool,
-    tag: i32,
+    tag: u32,
 }
 
 struct CacheSet {
@@ -58,7 +58,7 @@ fn main() {
 
     let mut cache: ModelCache = make_cache(opts, stats);
 
-    read_trace(matches.value_of("FILE").unwrap(), &cache);
+    read_trace(matches.value_of("FILE").unwrap(), &mut cache);
     
     println!("Hits: {} Misses: {} Evictions: {}", cache.stats.hits,
                                                   cache.stats.misses,
@@ -77,7 +77,7 @@ fn make_cache(options: Options, statistics: Statistics) -> ModelCache {
     ModelCache {opts: options, stats: statistics, sets: sets}
 }
 
-fn read_trace(file_loc: &str, cache: &ModelCache) {
+fn read_trace(file_loc: &str, cache: &mut ModelCache) {
     let file = File::open(file_loc).unwrap();
     let file = BufReader::new(file);
 
@@ -91,7 +91,7 @@ fn read_trace(file_loc: &str, cache: &ModelCache) {
     }
 }
 
-fn handle_instruction(line: &String, cache: &ModelCache) {
+fn handle_instruction(line: &String, cache: &mut ModelCache) {
     // Really ugly parsing ahead
     let inst: char = line.chars().nth(1).unwrap();
     let (_, end): (&str, &str) = line.split_at(4);
@@ -135,4 +135,47 @@ fn handle_instruction(line: &String, cache: &ModelCache) {
     tag = tag >> (cache.opts.sets + cache.opts.blocks);
 
     println!("{} @ {}: Set {} Tag {}", inst, addr, set, tag);
+
+    match inst {
+        'M' => {
+            access_cache(set, tag, cache);
+            access_cache(set, tag, cache);
+        },
+        'S' | 'L' => access_cache(set, tag, cache),
+        _ => panic!("Undefined memory access! {} @ {}", inst, addr),
+    };
+}
+
+fn access_cache(set: u32, tag: u32, cache: &mut ModelCache) {
+    // find the target cache location
+    let target_set = &mut cache.sets[set as usize];
+
+    let mut i = 0;
+    let mut found_line: bool = false;
+    let mut set_is_full: bool = true;
+    for line in &target_set.lines {
+        if line.valid && tag == line.tag{
+            cache.stats.hits += 1;
+            // Move the line to the front of the queue
+            found_line = true;
+            break;
+        }
+        set_is_full = line.valid;
+        i += 1;
+    }
+    // If the line is not in there then we place it
+    // at the front of the queue
+    if !found_line {
+        target_set.lines.pop();
+        target_set.lines.insert(0, CacheLine {valid: true, tag: tag});
+        if set_is_full {
+            cache.stats.misses += 1;
+            cache.stats.evictions += 1;
+        } else {
+            cache.stats.misses += 1;
+        }
+    } else {
+        let matched_line = target_set.lines.remove(i);
+        target_set.lines.insert(0, matched_line);
+    }
 }
