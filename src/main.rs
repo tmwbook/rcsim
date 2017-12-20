@@ -87,11 +87,11 @@ fn read_trace(file_loc: &str, cache: &ModelCache) {
             println!("SKIPPED LINE!");
             continue;
         }
-        handle_instruction(&line);
+        handle_instruction(&line, cache);
     }
 }
 
-fn handle_instruction(line: &String) {
+fn handle_instruction(line: &String, cache: &ModelCache) {
     // Really ugly parsing ahead
     let inst: char = line.chars().nth(1).unwrap();
     let (_, end): (&str, &str) = line.split_at(4);
@@ -102,5 +102,37 @@ fn handle_instruction(line: &String) {
 
     // Do some bitwise to get the different parts of the destination
 
-    println!("{} @ {}", inst, addr);
+    /*
+        C code to do this stuff
+        
+        int mask = -1;
+        mask = mask << (cache->opts->blockBits);
+        //block = (~mask & addr);
+
+        int setMask = -1;
+        setMask = setMask << (cache->opts->setBits);
+        setMask = ~setMask;
+        setMask = setMask << (cache->opts->blockBits);
+        set = setMask & addr;
+        set = set >> (cache->opts->blockBits);
+
+        mask = mask << (cache->opts->setBits);
+        tag = mask & addr;
+        tag = tag >> (cache->opts->setBits + cache->opts->blockBits);
+     */
+
+    let mut set_mask = std::u32::MAX;
+    set_mask = set_mask << (cache.opts.sets);
+    set_mask = set_mask.wrapping_neg() - 1;
+    set_mask = set_mask << (cache.opts.blocks);
+    let mut set = set_mask & addr;
+    set = set >> (cache.opts.blocks);
+
+    let mut tag_mask = std::u32::MAX;
+    tag_mask = tag_mask << (cache.opts.blocks);
+    tag_mask = tag_mask << (cache.opts.sets);
+    let mut tag = tag_mask & addr;
+    tag = tag >> (cache.opts.sets + cache.opts.blocks);
+
+    println!("{} @ {}: Set {} Tag {}", inst, addr, set, tag);
 }
